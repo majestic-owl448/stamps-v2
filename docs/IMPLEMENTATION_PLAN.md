@@ -12,14 +12,28 @@ The repository currently contains:
 - An authenticated profile route that creates or updates a `UserProfile` keyed by the SuperTokens primary user ID.
 - A dashboard postal-entity workflow that lets a new user choose an available entity or create one before inventory access.
 - A settings manager that lets each user add and edit postal-entity settings and select the active setting.
-- Reference schedules, fixed conversions, and named face values that resolve according to the active postal entity's local date.
+- Fixed currency conversions and named face-value schedules, with scheduled values resolved according to the user's dashboard local date.
 - User-owned inventory entries with monetary, named/code, and manual postage values; quantity, annulled, expiration, and removal controls; and active-country totals.
 - Named/code, fixed-conversion, and postal-entity proposal workflows, including moderator approval, rejection, and duplicate merging.
 - JSON account-data export and account deletion controls on personal settings, retaining approved shared contributions without the deleted user's direct references.
 - Continuous integration for lint, tests, build, and migration checks, plus isolated local normal-user and moderator test clients.
 - Vitest and ESLint configuration, with database tests running against a temporary database.
 
-The baseline repair is complete. `pnpm lint`, `pnpm test --run`, and `pnpm build` pass, and the retained test suites contain assertions. The database test applies every committed migration to a disposable SQLite database instead of writing to the development database.
+The baseline repair is complete, and CI runs `pnpm lint`, `pnpm test --run`, and `pnpm build`. The retained test suites contain assertions. The database test applies every committed migration to a disposable SQLite database instead of writing to the development database.
+
+Phases 1 through 11 organize the inventory features now represented in the code.
+Their checklists remain verification criteria, not a claim that every release
+acceptance check has been completed. Phase 12 retains the release-verification
+checklist; CI is already configured, while the
+persistent preview is tracked in [#30](https://github.com/majestic-owl448/stamps-v2/issues/30).
+The schema sketches below summarize the model; `prisma/schema.prisma` contains
+the complete fields, relations, and constraints.
+
+Next, [#98](https://github.com/majestic-owl448/stamps-v2/issues/98) removes the
+separate issuing-authority field, and
+[#99](https://github.com/majestic-owl448/stamps-v2/issues/99) introduces postal-entity
+currency history, currency proposals, and entity-based valuation. Their schema,
+API, interface, export, test, and documentation changes remain outstanding.
 
 The implementation should keep each phase in an atomic conventional commit. Schema migrations and their matching application changes belong in the same feature phase unless splitting them leaves both commits runnable.
 
@@ -79,6 +93,8 @@ UserProfile
   id                            String primary key, SuperTokens primary user ID
   email                         String nullable
   role                          USER or MODERATOR
+  timeZone                      IANA timezone, default UTC
+  timeZoneMode                  SYSTEM or CUSTOM
   activePostalEntitySettingId   String nullable until initial settings are saved
   createdAt
   updatedAt
@@ -88,6 +104,10 @@ PostalEntity
   name
   normalizedName
   countryCode
+  issuingAuthority
+  scope
+  sourceUrl nullable
+  sourceNote nullable
   status
   submittedById nullable
   createdAt
@@ -134,7 +154,7 @@ Suggested commit:
 feat(valuation): add shared value schedules
 ```
 
-Initial entities:
+Shared entities (pending submissions live in separate proposal tables):
 
 ```text
 Currency
@@ -153,8 +173,6 @@ ValueScheduleValue
   valueScheduleId
   amount
   effectiveOn nullable
-  moderationStatus
-  proposerId nullable
   createdAt
 
 NamedFaceValue
@@ -163,8 +181,6 @@ NamedFaceValue
   displayCode
   normalizedCode
   valueScheduleId
-  moderationStatus
-  proposerId nullable
   createdAt
   updatedAt
 
@@ -173,8 +189,6 @@ CurrencyConversion
   fromCurrencyCode
   toCurrencyCode
   multiplier
-  moderationStatus
-  proposerId nullable
   createdAt
   updatedAt
 ```
@@ -185,7 +199,7 @@ Constraints:
 - Amounts and multipliers are non-negative decimals; conversion multipliers must be greater than zero.
 - Effective dates are date-only values.
 - A value schedule's values use the schedule currency.
-- A pending value is associated with its proposer.
+- Pending values live in `NamedFaceValueDefinitionProposal`, `NamedFaceValueValueProposal`, or `CurrencyConversionProposal`, with a `submittedById` and proposal status. Shared records are written on approval or merge.
 
 Do not add a postage-rate catalog in this phase. A later `PostageRate` table will reference `ValueSchedule`. Named face values and formally linked postage rates will stay synchronized because neither owns a copied amount.
 
@@ -206,20 +220,15 @@ Suggested commit:
 feat(valuation): calculate current stamp values
 ```
 
-Create server-only functions rather than calculating money in React components:
-
-```text
-resolveNamedValue(namedFaceValueId, userId, localDate)
-resolveConversion(fromCurrency, toCurrency, userId)
-calculateStampValue(stamp, activeCountrySetting, resolvedValue)
-findUpcomingValue(namedFaceValueId, userId, localDate)
-```
+Keep valuation on the server. `lib/namedFaceValue.ts` resolves current and upcoming
+named values, `lib/currencyConversion.ts` resolves fixed conversions, and
+`lib/stampInventory.ts` presents stamp values and calculates inventory totals.
 
 Resolution rules:
 
 1. Return zero with `OUTSIDE_ACTIVE_COUNTRY` when the stamp country differs from the active country.
 2. Include approved entries and pending entries belonging to the current user.
-3. For named values, select the latest entry whose effective date is absent or no later than the active country setting's local date.
+3. For named values, select the latest entry whose effective date is absent or no later than the user's dashboard local date.
 4. Prefer the user's eligible pending named-value proposal when it conflicts with the approved value for the same effective date.
 5. Find the next eligible future named-value entry for advance notice.
 6. Display the next named value when it is no more than 10 calendar days away.
@@ -229,7 +238,9 @@ Fixed currency conversions do not have effective dates. The conversion resolver 
 
 The service accepts an explicit active country setting and local date for deterministic tests. The inventory route supplies today's date in the user's saved dashboard timezone. There is no date selector in the user interface.
 
-Use a decimal library or the database client's decimal type for every calculation. Convert to strings at the API boundary and format only at the presentation layer.
+Use the exact decimal helpers in `lib/decimal.ts` for calculations. They operate
+on decimal strings with `BigInt`; amounts are stored and serialized as strings.
+Format only at the presentation layer.
 
 Tests must cover:
 
@@ -257,6 +268,7 @@ Add:
 StampInventoryEntry
   id
   userId
+  postalEntityId
   countryCode
   name
   yearOfIssue nullable
@@ -264,6 +276,7 @@ StampInventoryEntry
   faceAmount nullable
   faceCurrencyCode nullable
   namedFaceValueId nullable
+  namedFaceValueProposalId nullable
   manualPostageAmount nullable
   manualPostageCurrencyCode nullable
   quantityOwned
@@ -285,10 +298,11 @@ POST   /api/stamps
 PATCH  /api/stamps/:id
 DELETE /api/stamps/:id
 GET    /api/settings
-PATCH  /api/settings
-POST   /api/settings/countries
-PATCH  /api/settings/countries/:id
-POST   /api/settings/countries/:id/activate
+PATCH  /api/settings/timezone
+POST   /api/settings/postal-entities
+PATCH  /api/settings/postal-entities/:settingId
+PATCH  /api/settings/active-postal-entity
+POST   /api/settings/postal-entities/:settingId/replacement
 ```
 
 Every stamp query includes the session user ID. Updates and deletions for records outside that ownership boundary return `404`.
@@ -358,7 +372,7 @@ Merge behavior:
 - Mark the proposal `MERGED`.
 - Reject a merge that would create incompatible named-value country or effective-date data, or an incompatible conversion currency pair.
 
-Product decision R1 in [issue #24](https://github.com/majestic-owl448/stamps-v2/issues/24) must be decided before implementing rejected-proposal behavior.
+Rejected-proposal behavior was resolved in [issue #24](https://github.com/majestic-owl448/stamps-v2/issues/24): stop using the rejected data, mark linked private records as requiring action, and let the proposer resubmit or choose an eligible replacement. Do not select an approved or manual fallback automatically. Resubmission creates a new proposal and preserves the rejected submission.
 
 Moderator interface:
 
@@ -400,7 +414,7 @@ feat(stamps): add inventory list controls
 
 Add-stamp flow:
 
-1. Select the stamp country, defaulting to the active country.
+1. Select the stamp postal entity and its country, defaulting to the active selection.
 2. Enter a stamp name.
 3. Optionally enter the year of issue.
 4. Select monetary, named/code, or no face value.
@@ -443,7 +457,7 @@ Add an authenticated `GET /api/account/export` endpoint that returns one JSON at
 The export service gathers:
 
 - SuperTokens account metadata exposed to the application, excluding tokens and provider secrets.
-- Profile, country settings, inventory, and private valuation records.
+- Profile, postal-entity settings, inventory, and private valuation records.
 - Every proposal submitted by the user, regardless of status.
 - Shared definitions, schedule values, conversions, and later postage-rate records that retain a contributor link to the user.
 - Moderation and audit entries that refer to the user as proposer, affected account, or moderator.
@@ -478,7 +492,7 @@ Workflow:
 
 1. Create an account-deletion job and mark the profile as deleting.
 2. Revoke sessions and block further application access for that profile.
-3. In a database transaction, delete inventory, country settings, pending and rejected proposals, and other private user-owned values.
+3. In a database transaction, delete inventory, postal-entity settings, pending and rejected proposals, and other private user-owned values.
 4. Preserve approved and merged shared records while setting proposer and other direct user references to null.
 5. Delete the SuperTokens user identity.
 6. Retry any failed external step without recreating deleted private data.
@@ -488,7 +502,7 @@ Database foreign keys must use deliberate deletion behavior. User-owned records 
 
 Tests:
 
-- Delete the authentication identity, profile, country settings, inventory, and private proposal data.
+- Delete the authentication identity, profile, postal-entity settings, inventory, and private proposal data.
 - Preserve approved and merged definitions, schedules, conversions, and their source information.
 - Remove the deleted user's identity from preserved shared data and moderation history.
 - Leave every other user's data unchanged.
@@ -523,7 +537,7 @@ Deployment work:
 2. Configure SuperTokens production domains.
 3. Replace demo social credentials with production Google and Apple applications.
 4. Run migrations before serving the new application version.
-5. Add CI jobs for lint, tests, build, and migration checks.
+5. Keep the existing CI jobs for lint, tests, build, and clean-database migration checks passing.
 6. Test a preview deployment with a normal account and a moderator account.
 7. Document backup, restore, and moderator-role assignment.
 

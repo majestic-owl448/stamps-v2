@@ -3,11 +3,18 @@
 ## Document status
 
 - Scope: production hosting for the stamp inventory application
-- Research date: September 1, 2026
+- Original research date: September 1, 2026
+- Repository and pricing review: October 3, 2026 (verification limits noted below)
 - Currency: USD before tax unless a provider states otherwise
 - Current stack: Next.js 16 App Router, React 19, Prisma 7, SQLite, and SuperTokens with Google and Apple login
 
 Provider prices and limits change. Recheck the linked pricing pages before provisioning or approving a recurring budget.
+
+The repository still uses SQLite. `pnpm db:init` already runs
+`prisma migrate deploy`, and CI already checks migrations against an empty
+database. A hosting provider has not been selected in repository configuration;
+[#30](https://github.com/majestic-owl448/stamps-v2/issues/30) tracks the persistent
+preview. PostgreSQL and Railway below remain recommendations.
 
 ## Recommendation
 
@@ -30,11 +37,11 @@ Keep SuperTokens managed Cloud for the first release. Core features cost $0 belo
 
 The strongest alternative is Vercel Pro with Neon Postgres. Choose it if native Next.js deployment and preview ergonomics matter more than keeping the app and database under one provider. The expected paid floor is $20 per month for Vercel Pro; Neon can begin on its free tier and become usage-based.
 
-## Required changes before any production deployment
+## Required work for the proposed PostgreSQL deployment
 
 1. Replace the Prisma SQLite datasource and `better-sqlite3` adapter with PostgreSQL.
 2. Create and test Prisma migrations from an empty production-like database.
-3. Add a non-interactive production migration command, normally `prisma migrate deploy`.
+3. Reuse `pnpm db:init` (`prisma migrate deploy`) as the release migration command after the provider, adapter, and migration set have been changed to PostgreSQL.
 4. Keep separate production, preview, local-development, and test database URLs.
 5. Configure the public application URL, SuperTokens connection settings, Google credentials, and Apple credentials as provider secrets.
 6. Register the final production and preview callback URLs with Google, Apple, and SuperTokens.
@@ -53,10 +60,18 @@ The base costs below describe the least expensive usable tier, not a guaranteed 
 | Vercel | Native platform for Next.js, including App Router and Functions. | No first-party SQL database. Connect a Marketplace or external Postgres provider such as Neon. Local SQLite is unsupported because the runtime filesystem is ephemeral. | Hobby is $0 but restricted to personal, non-commercial use. Pro is $20/developer/month and includes $20 usage credit. | Pro Function overages start at $0.128/CPU-hour, $0.0106/GB-hour of provisioned memory, and $0.60 per million invocations; bandwidth and other products have separate meters. Database cost is additional. | Best Next.js experience. Recommended alternative with Neon, especially for preview deployments. |
 | Render | Official Next.js web-service deployment. | Yes. Render Postgres can share a private network with the web service. A persistent disk can hold SQLite, but it is paid-only, attaches to one instance, and prevents multi-instance scaling and zero-downtime deploys. | Free web services sleep after 15 idle minutes. A Starter web service is $7/month and paid Postgres starts at $7/month, for a $14/month paid floor. | Scale by selecting larger fixed-size instances, increasing database compute/storage, or adding instances. Persistent disks and outbound bandwidth are separate. | Straightforward paid alternative. Confirm the live database price in the dashboard because Render's main pricing table is dynamically rendered. |
 | Fly.io | Official Next.js Docker deployment; standalone output is recommended. | Yes. It can run Postgres and can mount a volume for SQLite. Volumes are local to a machine and cannot be shared between machines. | A continuously running shared-cpu-1x Machine is about $2.02/month at 256 MB, $3.32 at 512 MB, or $5.92 at 1 GB. Real Next.js memory needs may require the larger sizes. | Add Machines, memory, regions, Postgres resources, $0.15/GB-month volumes, and network egress. North America and Europe egress is $0.02/GB. | Low infrastructure floor and good control, but more Docker, networking, database, and availability work. |
-| DigitalOcean App Platform | Official Next.js sample and Node application support. | A development PostgreSQL database can be attached to the same app. Production managed PostgreSQL is a separate DigitalOcean resource. | App container: $5/month for 512 MB or $10/month for 1 GB. Development PostgreSQL is $7/month. Production managed PostgreSQL starts at $15/month for a 1 GB single node. | Increase container size or count. Managed database nodes, standby nodes, and storage add cost; extra database storage is $0.21/GiB-month. | Predictable pricing. A paid app plus production database starts around $20/month before auth and extras. |
+| DigitalOcean App Platform | Official Next.js sample and Node application support. | A development PostgreSQL database can be attached to the same app. Production managed PostgreSQL is a separate DigitalOcean resource. | App container: $5/month for 512 MB or $10/month for 1 GB. Development PostgreSQL is $7/month. Production managed PostgreSQL starts at $15/month for a 1 GB single node. | Increase container size or count. Managed database nodes, standby nodes, and storage add cost; extra Standard Edition database storage is $0.215/GiB-month. | Predictable pricing. A paid app plus production database starts around $20/month before auth and extras. |
 | Netlify | Broad Next.js support through OpenNext, including App Router, Server Components, route handlers, and SSR. | Yes on credit-based plans through Netlify Database, a managed Postgres product. External Postgres also works. | Free is $0 with 300 credits. Personal is $9/month with 1,000 credits. Pro starts at $20/month with 3,000 credits. | Production deploys cost 15 credits, compute 10 credits/GB-hour, bandwidth 20 credits/GB, and web requests 2 credits/10,000. Netlify Database compute is 10 credits/unit and database bandwidth 20 credits/GB. Its documentation had not published the post-promotion storage rate by the research date. | Compatible, but the shared credit model and missing storage rate make app and database cost less predictable than Railway for this project. |
 
 Official sources: [Railway plans and resource rates](https://docs.railway.com/pricing/plans), [Railway PostgreSQL](https://docs.railway.com/databases/postgresql), [Vercel plans](https://vercel.com/pricing), [Vercel Function pricing](https://vercel.com/docs/functions/usage-and-pricing), [Vercel SQLite limitation](https://vercel.com/kb/guide/is-sqlite-supported-in-vercel), [Render Next.js](https://render.com/docs/deploy-nextjs-app), [Render persistent disks](https://render.com/docs/disks), [Render service and database starting costs](https://render.com/articles/hosting-n8n-on-render-for-llm-powered-automation), [Fly.io Next.js](https://fly.io/docs/js/frameworks/nextjs/), [Fly.io pricing](https://fly.io/docs/about/pricing/), [Fly.io volumes](https://fly.io/docs/js/the-basics/volumes/), [DigitalOcean App Platform pricing](https://docs.digitalocean.com/products/app-platform/details/pricing/), [DigitalOcean PostgreSQL pricing](https://docs.digitalocean.com/products/databases/postgresql/details/pricing/), [Netlify Next.js](https://docs.netlify.com/build/frameworks/framework-setup-guides/nextjs/overview/), [Netlify plans](https://www.netlify.com/pricing/), and [Netlify Database billing](https://docs.netlify.com/build/data-and-storage/netlify-database/billing-and-usage/).
+
+The October review confirmed the linked Railway, Vercel, Render, DigitalOcean,
+Netlify, Supabase, and SuperTokens pricing sources. Fly.io machine estimates vary
+by region. Neon's October 2 announcement confirms the updated free storage allowance.
+Its paid pricing page could not be retrieved during this review, so the paid
+Neon figures below remain the September snapshot and need confirmation before
+selection. Netlify still does not
+publish a storage rate on its linked database billing page.
 
 ## Database-only hosting comparison
 
@@ -64,13 +79,13 @@ These options apply when the application host does not include suitable database
 
 | Provider | Base cost and allowance | How cost grows | Fit for this project |
 | --- | --- | --- | --- |
-| Neon | Free: 100 compute-unit hours per project per month, 0.5 GB storage per project, and scale-to-zero. Launch is usage-based at $0.106/CU-hour and $0.35/GB-month; Neon gives about $15/month as an example for an intermittent 1 GB workload. | Pay for active compute, stored data, and network transfer beyond allowances. Larger plans add higher limits and operational features. | Recommended with Vercel. Serverless connection handling, branching, and scale-to-zero suit previews and a small initial workload. |
+| Neon | Free: 100 compute-unit hours per project per month, 1 GB storage per project, and scale-to-zero. The September snapshot lists Launch at $0.106/CU-hour and $0.35/GB-month; Neon gives about $15/month as an example for an intermittent 1 GB workload. | Pay for active compute, stored data, and network transfer beyond allowances. Larger plans add higher limits and operational features. | Recommended with Vercel. Serverless connection handling, branching, and scale-to-zero suit previews and a small initial workload. |
 | Supabase | Free: 500 MB database, 5 GB egress, and two active projects; a project pauses after one inactive week. Pro starts at $25/month and includes $10 compute credit, enough for one Micro instance, 8 GB disk, 250 GB egress, and seven days of daily backups. | A Small compute instance makes the Pro total about $30/month after the $10 credit; Medium is about $75. Storage above 8 GB is $0.125/GB and egress above 250 GB is $0.09/GB. | Strong database product, but its bundled Auth, Storage, and APIs overlap with features this repository does not currently need. |
 | Railway PostgreSQL | Shares the Railway account's $5 Hobby or $20 Pro included usage. There is no separate fixed database-plan fee. | Same resource meters as application services: $10/GB-month RAM, $20/vCPU-month CPU, $0.15/GB-month volume storage, and egress when public networking is used. | Best when the app is also on Railway. Private networking avoids public database egress. Backups and production readiness still need explicit configuration. |
 | Render Postgres | A separate managed service with a free 30-day evaluation database; paid service starts at $7/month. | Increase compute and disk independently, then add higher availability and retention as needed. | Reasonable with a Render web service. Check the dashboard quote before choosing it because the main public pricing table does not expose a stable text table. |
-| DigitalOcean Managed PostgreSQL | $15/month for a 1 GB single node. High availability begins with a $30/month primary plus at least one matching $30/month standby. | Read-only nodes start at $15/month; storage beyond the plan is $0.21/GiB-month. | Predictable and conventional, but more expensive than the likely first-release workload needs. |
+| DigitalOcean Managed PostgreSQL | $15/month for a 1 GB single node. High availability begins with a $30/month primary plus at least one matching $30/month standby. | Read-only nodes start at $15/month; additional Standard Edition storage is $0.215/GiB-month. From October 15, 2026 for new accounts and November 30 for all accounts, new Standard Edition clusters cannot add standby/read-only nodes or exceed 4 GiB RAM; Advanced Edition begins at $130/month per 8 GiB node. | Predictable and conventional, but more expensive than the likely first-release workload needs. |
 
-Official sources: [Neon pricing](https://neon.com/pricing), [Supabase pricing](https://supabase.com/pricing), [Railway PostgreSQL](https://docs.railway.com/databases/postgresql), [Render Postgres](https://render.com/docs/postgresql), [Render database starting cost](https://render.com/articles/hosting-n8n-on-render-for-llm-powered-automation), and [DigitalOcean PostgreSQL pricing](https://docs.digitalocean.com/products/databases/postgresql/details/pricing/).
+Official sources: [Neon pricing](https://neon.com/pricing), [Neon free-plan update](https://neon.com/blog/neon-free-plan-1-gb-per-project), [Supabase pricing](https://supabase.com/pricing), [Railway PostgreSQL](https://docs.railway.com/databases/postgresql), [Render Postgres](https://render.com/docs/postgresql), [Render database starting cost](https://render.com/articles/hosting-n8n-on-render-for-llm-powered-automation), and [DigitalOcean PostgreSQL pricing](https://docs.digitalocean.com/products/databases/postgresql/details/pricing/).
 
 ### Database placement rules
 
@@ -157,8 +172,8 @@ The inventory workload is likely to be database-light: small records, modest wri
 
 ### Stage 1: deployment preparation
 
-1. Complete the persistent-storage implementation issue and migrate Prisma to PostgreSQL.
-2. Add production migration, health-check, and environment documentation.
+1. Select the hosting provider in the persistent-preview work and, for the proposed topology, migrate Prisma to PostgreSQL.
+2. Configure the existing migration command as a release step; add the health endpoint and provider-specific environment documentation.
 3. Decide whether linked login is a product requirement. Approve the SuperTokens account-linking add-on budget only if it is.
 4. Confirm Google and Apple production credentials and callback URLs.
 
@@ -190,4 +205,4 @@ Review the hosting choice when any of these occurs:
 
 ## Decision to defer
 
-The repository should not add provider-specific deployment configuration until the hosting provider is selected. This proposal recommends Railway, but the implementation issue can retain the final provider choice as an explicit decision before provisioning. The PostgreSQL migration, release-safe migrations, environment separation, and backup requirements apply to every viable option.
+The repository should not add provider-specific deployment configuration until the hosting provider is selected. This proposal recommends Railway, but the implementation issue can retain the final provider choice as an explicit decision before provisioning. The PostgreSQL migration applies to the proposed PostgreSQL topology. Release migrations, environment separation, and tested backups are required for whichever storage option is selected.

@@ -4,16 +4,24 @@
 
 - Scope: transactional email for the stamp inventory application
 - Delivery model: application mail service backed by an SMTP or email API provider
-- Current authentication: Google and Apple social login only
+- Current authentication: Google and Apple social login only; no account-linking interface
+- Implementation status: proposal only; no mail transport, outbox, worker, or notification preferences exist
 - Excluded from the initial implementation: email-and-password login, username-and-password login, operating a public SMTP server, marketing campaigns, and physical postal-mail features
 
 ## Recommendation
 
-Add a provider-independent mail service after profiles, user settings, and moderation events exist. Use a transactional email provider to deliver messages. Do not operate the SMTP infrastructure for the first release.
+Add a provider-independent mail service using the existing profiles, user settings, and moderation events. Use a transactional email provider to deliver messages. Do not operate the SMTP infrastructure for the first release.
 
 The application should own templates, notification rules, preferences, and delivery records. The provider should handle message transfer, domain authentication, bounce processing, complaint processing, and delivery reputation. This split lets the application change providers without rewriting product features.
 
 Email must report application state, not control it. A failed email must not prevent a social login from being linked, a proposal from being moderated, an account from being deleted, or a scheduled value from taking effect. The application remains the source of truth.
+
+Account linking is a separate product decision, as described in the
+[deployment proposal](DEPLOYMENT_PROPOSAL.md#authentication-cost-comparison).
+Login-linked and login-removed messages, and selection among multiple linked
+addresses, depend on that feature being approved and implemented. The initial
+email service can use the verified address of the current social identity; it
+must define what happens when that identity supplies no verified address.
 
 ## Reasons to add email
 
@@ -27,11 +35,11 @@ The first release remains social-login-only. Once reliable transactional email e
 
 The email service would deliver address-verification links, password-reset links, password-change notices, and recovery warnings. SuperTokens, rather than the delivery provider, would continue to hash and check passwords, manage reset-token state, and create sessions.
 
-This future login method would need short-lived, single-use verification and reset tokens, request rate limits, responses that do not disclose whether an account exists, session revocation after sensitive credential changes, and the same explicit account-linking rules used by social identities. A password login must be deliberately linked to an existing signed-in account; a matching email address alone must not merge accounts.
+This future login method would need short-lived, single-use verification and reset tokens, request rate limits, responses that do not disclose whether an account exists, session revocation after sensitive credential changes, and explicit account-linking rules agreed before implementation. A password login must be deliberately linked to an existing signed-in account; a matching email address alone must not merge accounts.
 
 ### Moderation does not finish during the submitting session
 
-A named/code value or fixed conversion can remain pending after the user leaves the application. Email can report approval, rejection, or merging without requiring the user to reopen the proposal list repeatedly.
+A postal entity, named/code value, or fixed conversion can remain pending after the user leaves the application. Email can report approval, rejection, or merging without requiring the user to reopen the proposal list repeatedly.
 
 ### Future values have known dates
 
@@ -52,7 +60,7 @@ A delivery record can answer whether the application attempted a notification, w
 | Login method linked | Account notification email | Required security notice | A Google or Apple identity is linked | Provider name, time, and a link to account settings; no provider token |
 | Login method removed | Account notification email | Required security notice | A linked identity is removed after alternate-login confirmation | Removed provider, time, and support instructions |
 | Account deletion started | Account notification email | Required security notice | Immediately before the deletion workflow blocks access | Time and warning that private data will be removed; do not attach an export |
-| Proposal submitted | Proposer | Optional | A named/code value or conversion is submitted | Proposal type, country or currency pair, and proposal link |
+| Proposal submitted | Proposer | Optional | A postal entity, named/code value, or conversion is submitted | Proposal type, country or currency pair, and proposal link |
 | Proposal approved | Proposer | On | Moderator approval commits shared data | Result and shared record link |
 | Proposal rejected | Proposer | On | Moderator rejection | Result, decision note, and proposal link |
 | Proposal merged | Proposer | On | Moderator merges a duplicate | Canonical shared record and decision note |
@@ -64,9 +72,9 @@ A delivery record can answer whether the application attempted a notification, w
 
 ## Notification address
 
-The account needs one selected notification email. Initially, the user selects it from the verified email addresses exposed by their linked Google and Apple login methods. The application does not assume that matching provider emails represent the same person and does not send each message to every linked address.
+The account needs one selected notification email. Initially, use a verified email exposed by the current Google or Apple identity. If account linking is added, let the user select among verified addresses from their linked identities. The application does not assume that matching provider emails represent the same person and does not send each message to every linked address.
 
-Removing a login method is blocked when its email is the notification address until the user selects another verified linked address. Supporting an unrelated custom notification address can be added later with a separate verification flow.
+If account linking is implemented, removing a login method is blocked when its email is the notification address until the user selects another verified linked address. Supporting an unrelated custom notification address can be added later with a separate verification flow.
 
 ## Delivery design
 
@@ -130,7 +138,7 @@ Store only fields required to render the selected template. Inventory lists, ful
 
 The settings page should provide:
 
-- Selected notification email from verified linked-login emails.
+- Verified notification email; selection among linked-login emails only if account linking is implemented.
 - Proposal-status email preference.
 - Upcoming named/code value preference.
 - Moderator-digest preference for moderators.
@@ -174,19 +182,19 @@ Those tasks do not improve stamp inventory or moderation. A delivery provider le
 
 ## Providers and costs
 
-The prices below were checked on August 21, 2026. They are public list prices in US dollars, before taxes. Providers can change prices, included features, and volume bands, so the selected plan must be checked again before launch.
+The prices below were reviewed on October 3, 2026. They are public list prices in US dollars, before taxes. Providers can change prices, included features, and volume bands, so the selected plan must be checked again before launch.
 
-All of these providers can be called from the application through an HTTP API. Most also expose SMTP. None needs to run in the same deployment as the web application or database. The application-owned outbox belongs in the application database, which currently uses SQLite; move it with the planned production migration to PostgreSQL. The provider only handles delivery and delivery events.
+All of these providers can be called from the application through an HTTP API. Most also expose SMTP. None needs to run in the same deployment as the web application or database. The application-owned outbox belongs in the application database, which currently uses SQLite; migrate it too if the proposed PostgreSQL deployment is selected. The provider only handles delivery and delivery events.
 
 | Provider | Entry price | How cost scales | Suitability for this project |
 | --- | --- | --- | --- |
 | [Resend](https://resend.com/pricing) | Free for 3,000 emails per month, limited to 100 per day. Pro is $20 per month for 50,000. | Pro overage is $0.90 per additional 1,000 emails. Scale is $90 per month for 100,000. | The simplest initial choice for the current Next.js stack. It has official Next.js examples, webhooks, and a low-friction API. The free daily limit may be reached during a moderation burst. |
 | [Postmark](https://postmarkapp.com/pricing) | Free for 100 emails per month. Basic is $15 per month for 10,000. | Basic overage is $1.80 per additional 1,000. Higher plans reduce the overage rate and add longer retention or more domains. | A strong choice when transactional-email delivery, message history, and support matter more than the lowest price. |
 | [Amazon SES](https://aws.amazon.com/ses/pricing/) | The Essentials plan has no monthly account fee and charges $0.16 per 1,000 outgoing emails for the first 10 million. New SES accounts start on this plan. | At that rate, 10,000 emails cost $1.60, 50,000 cost $8, and 100,000 cost $16, excluding attachment data and other AWS services. Pro adds $105 per account and Region each month plus $0.22 per 1,000. | The lowest listed delivery cost in this comparison. It requires more AWS configuration and operational knowledge for identities, permissions, event routing, suppression, and moving an account out of the SES sandbox. |
-| [Mailgun](https://www.mailgun.com/pricing/) | Free for up to 100 emails per day. Basic is $15 per month for 10,000. | Paid tiers and overage options increase with volume; the current quote or calculator should be checked for the intended volume because the public page does not expose every overage band in static content. | Useful when both API and SMTP delivery, inbound routing, or Mailgun-specific tooling are wanted. It offers no clear advantage over Resend for the first release. |
+| [Mailgun](https://www.mailgun.com/pricing/) | Free for up to 100 emails per day. Basic is $15 per month for 10,000. | Basic extra emails start at $1.80 per 1,000. Foundation starts at $35 per month for 50,000; check the calculator for the intended volume. | Useful when both API and SMTP delivery, inbound routing, or Mailgun-specific tooling are wanted. It offers no clear advantage over Resend for the first release. |
 | [Brevo](https://www.brevo.com/products/transactional-email/) | Free for 300 emails per day. Starter begins at $9 per month for 5,000 monthly emails. | Standard begins at $18 per month for 5,000. Professional begins at $499 per month for 150,000; intermediate volumes depend on the selected band. | The free daily allowance is generous. Its plans also include marketing and contact-management features that this application does not currently need. |
 
-Resend documents both [Next.js integration examples](https://resend.com/docs/examples) and [signed delivery webhooks](https://resend.com/docs/api-reference/webhooks/create-webhook). Postmark explains how included volume and overage are billed in its [monthly pricing guide](https://postmarkapp.com/support/article/1107-how-does-monthly-pricing-work). Amazon describes the July 2026 SES plan structure in its [pricing-plan announcement](https://aws.amazon.com/blogs/messaging-and-targeting/introducing-amazon-simple-email-service-ses-pricing-plans/). Brevo documents its [transactional email API](https://developers.brevo.com/docs/send-a-transactional-email).
+Resend documents both [Next.js integration examples](https://resend.com/docs/examples) and [signed delivery webhooks](https://resend.com/docs/api-reference/webhooks/create-webhook). Postmark explains how included volume and overage are billed in its [monthly pricing guide](https://postmarkapp.com/support/article/1107-how-does-monthly-pricing-work). Amazon describes the July 2026 SES plan structure in its [pricing-plan announcement](https://aws.amazon.com/blogs/messaging-and-targeting/introducing-amazon-simple-email-service-ses-pricing-plans/). Brevo lists its [plan prices and allowances](https://help.brevo.com/hc/en-us/articles/208589409-About-Brevo-s-pricing-plans) and documents its [transactional email API](https://developers.brevo.com/docs/send-a-transactional-email).
 
 ### Recommended starting choice
 
@@ -212,13 +220,13 @@ Before selecting a production provider, compare its data-processing terms, avail
 
 ### Stage 2: security notifications
 
-1. Send login-linked and login-removed notices.
-2. Send the account-deletion-started notice before private data removal begins.
-3. Test failed delivery without rolling back the account action.
+1. Add login-linked and login-removed notices only after account linking is implemented.
+2. Attempt the account-deletion-started notice before private data removal begins. Delivery is best effort: deletion must not wait for retries, and cleanup must remove any unsent notice and its recipient data.
+3. Test failed delivery without rolling back or delaying the account action.
 
 ### Stage 3: moderation notifications
 
-1. Send proposal result messages after approve, reject, and merge transactions.
+1. Send postal-entity, named/code, and fixed-conversion proposal result messages after approve, reject, and merge transactions.
 2. Add optional submission confirmations.
 3. Add moderator digests only when queue activity warrants them.
 
@@ -237,7 +245,7 @@ This is not part of the initial email-service implementation. If selected later:
 2. Require a verified recovery email in either case.
 3. Add the SuperTokens password recipe without changing the primary user identifier.
 4. Add verification, reset, password-change, and recovery-warning templates.
-5. Allow deliberate linking and removal under the existing multiple-login-method rules.
+5. Allow deliberate linking and removal under the agreed multiple-login-method rules.
 6. Test enumeration resistance, token expiry and single use, rate limits, session revocation, export, and account deletion.
 
 ## Verification
@@ -257,7 +265,8 @@ This is not part of the initial email-service implementation. If selected later:
 
 - Transactional email provider and hosting region.
 - Sending domain and subdomain.
-- Notification-email behavior when no linked provider exposes a verified email.
+- Whether to implement account linking and fund its authentication costs.
+- Notification-email behavior when the current identity exposes no verified email.
 - Template languages for the first release.
 - Retention periods for outbox payloads and delivery events.
 - Send day and local send time for upcoming-value notices.

@@ -8,17 +8,16 @@ development; its requirements and implementation sequence are in [`docs/`](docs/
 
 Signed-in users can select one or more postal entities, set a display currency
 for each, choose the active setting used for valuation, and set one timezone for
-their dashboard. The
-dashboard lets them record monetary, named/code, and manually entered postage
-values; set a quantity, annulment state, and optional expiration date; remove an
-entry; and see the active-country total.
+their dashboard. The dashboard lets them record monetary, named/code, and manually
+entered postage values; edit owned and annulled quantities; mark an entry as
+expired; remove an entry; and see the active-country total.
 
 Users can propose named/code face values and fixed currency conversions. The
 proposal workflow keeps proposed entries separate from approved shared data.
 Moderators can review proposals, approve or reject them, and merge duplicates.
 
-The dashboard also provides a JSON download of the signed-in user's account data
-and an account-deletion flow. Deletion retains approved shared contributions but
+The personal Settings page provides timezone preferences, a JSON download of the
+signed-in user's account data, and an account-deletion flow. Deletion retains approved shared contributions but
 removes the deleted user's direct references to them.
 
 ## Local setup
@@ -99,9 +98,9 @@ existing database, with:
 pnpm db:init
 ```
 
-The command reads only the current process's `DATABASE_URL`, so set that value to
-the intended database before running it. It uses `prisma migrate deploy`, which
-applies committed migrations in order without creating a migration or resetting
+Prisma loads `DATABASE_URL` from `.env` unless the current process already sets
+it. Set an explicit `DATABASE_URL` when targeting another environment. The command
+uses `prisma migrate deploy`, which applies committed migrations in order without creating a migration or resetting
 existing data. Run the same command against the independently provisioned
 production database during deployment.
 
@@ -148,7 +147,8 @@ The authentication code is organized as follows:
 | `app/auth/[[...path]]/page.tsx` | Prebuilt sign-in and sign-up interface |
 | `app/components/supertokensProvider.tsx` | Client initialization and provider |
 | `app/components/sessionAuthForNextJS.tsx` | Server-rendering-safe session guard |
-| `app/dashboard/page.tsx` | Protected settings, inventory, proposals, and account-management dashboard |
+| `app/dashboard/page.tsx` | Protected postal-entity settings, inventory, and proposals |
+| `app/settings/page.tsx` | Protected timezone preferences, account export, and account deletion |
 | `lib/userProfile.ts` | Profile creation and email updates for signed-in users |
 
 `GET /api/me` creates or updates one `UserProfile` keyed by the SuperTokens
