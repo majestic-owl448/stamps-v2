@@ -7,14 +7,6 @@
 - Included systems: authentication, inventory, valuation, crowdsourced reference data, and moderation
 - Excluded systems: postage planning, stamp combination selection, and collection-market valuation
 
-The requirements below describe the current inventory design. Two open changes
-will revise it: [#98](https://github.com/majestic-owl448/stamps-v2/issues/98) removes
-the separate issuing-authority field, and
-[#99](https://github.com/majestic-owl448/stamps-v2/issues/99) replaces user-selected
-display currencies and country-based valuation with postal-entity currency history
-and entity-based valuation. Those issues define the planned behavior; their
-implementation must update the affected sections here.
-
 ## Product summary
 
 The application lets an authenticated user record the stamps they own and calculate their current postage value for a selected postal entity. A postal entity identifies the issuing authority, scope, and country used for postage. Each saved postal-entity setting has a display currency. The user has one dashboard timezone for date-based valuation. A stamp belongs to one postal entity and country and can have a monetary face value, a country-specific name or code, or no face value. The user records how many copies they own, how many are annulled, and whether the stamp has expired.

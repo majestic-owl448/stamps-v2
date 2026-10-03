@@ -21,20 +21,6 @@ The repository currently contains:
 
 The baseline repair is complete, and CI runs `pnpm lint`, `pnpm test --run`, and `pnpm build`. The retained test suites contain assertions. The database test applies every committed migration to a disposable SQLite database instead of writing to the development database.
 
-Phases 1 through 11 organize the inventory features now represented in the code.
-Their checklists remain verification criteria, not a claim that every release
-acceptance check has been completed. Phase 12 retains the release-verification
-checklist; CI is already configured, while the
-persistent preview is tracked in [#30](https://github.com/majestic-owl448/stamps-v2/issues/30).
-The schema sketches below summarize the model; `prisma/schema.prisma` contains
-the complete fields, relations, and constraints.
-
-Next, [#98](https://github.com/majestic-owl448/stamps-v2/issues/98) removes the
-separate issuing-authority field, and
-[#99](https://github.com/majestic-owl448/stamps-v2/issues/99) introduces postal-entity
-currency history, currency proposals, and entity-based valuation. Their schema,
-API, interface, export, test, and documentation changes remain outstanding.
-
 The implementation should keep each phase in an atomic conventional commit. Schema migrations and their matching application changes belong in the same feature phase unless splitting them leaves both commits runnable.
 
 ## Phase 1: Repair the baseline
@@ -372,7 +358,7 @@ Merge behavior:
 - Mark the proposal `MERGED`.
 - Reject a merge that would create incompatible named-value country or effective-date data, or an incompatible conversion currency pair.
 
-Rejected-proposal behavior was resolved in [issue #24](https://github.com/majestic-owl448/stamps-v2/issues/24): stop using the rejected data, mark linked private records as requiring action, and let the proposer resubmit or choose an eligible replacement. Do not select an approved or manual fallback automatically. Resubmission creates a new proposal and preserves the rejected submission.
+On rejection, stop using the rejected data, mark linked private records as requiring action, and let the proposer resubmit or choose an eligible replacement. Do not select an approved or manual fallback automatically. Resubmission creates a new proposal and preserves the rejected submission.
 
 Moderator interface:
 

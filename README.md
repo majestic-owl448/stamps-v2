@@ -17,8 +17,9 @@ proposal workflow keeps proposed entries separate from approved shared data.
 Moderators can review proposals, approve or reject them, and merge duplicates.
 
 The personal Settings page provides timezone preferences, a JSON download of the
-signed-in user's account data, and an account-deletion flow. Deletion retains approved shared contributions but
-removes the deleted user's direct references to them.
+signed-in user's account data, and an account-deletion flow. Deletion retains
+approved shared contributions but removes the deleted user's direct references
+to them.
 
 ## Local setup
 
@@ -100,8 +101,8 @@ pnpm db:init
 
 Prisma loads `DATABASE_URL` from `.env` unless the current process already sets
 it. Set an explicit `DATABASE_URL` when targeting another environment. The command
-uses `prisma migrate deploy`, which applies committed migrations in order without creating a migration or resetting
-existing data. Run the same command against the independently provisioned
+uses `prisma migrate deploy`, which applies committed migrations in order without
+creating a migration or resetting existing data. Run the same command against the independently provisioned
 production database during deployment.
 
 When changing the schema during development, create and apply the next migration:

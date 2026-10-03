@@ -5,7 +5,6 @@
 - Scope: transactional email for the stamp inventory application
 - Delivery model: application mail service backed by an SMTP or email API provider
 - Current authentication: Google and Apple social login only; no account-linking interface
-- Implementation status: proposal only; no mail transport, outbox, worker, or notification preferences exist
 - Excluded from the initial implementation: email-and-password login, username-and-password login, operating a public SMTP server, marketing campaigns, and physical postal-mail features
 
 ## Recommendation
@@ -182,7 +181,7 @@ Those tasks do not improve stamp inventory or moderation. A delivery provider le
 
 ## Providers and costs
 
-The prices below were reviewed on October 3, 2026. They are public list prices in US dollars, before taxes. Providers can change prices, included features, and volume bands, so the selected plan must be checked again before launch.
+Public list prices as of October 3, 2026, in US dollars before taxes. Providers can change prices, included features, and volume bands, so the selected plan must be checked again before launch.
 
 All of these providers can be called from the application through an HTTP API. Most also expose SMTP. None needs to run in the same deployment as the web application or database. The application-owned outbox belongs in the application database, which currently uses SQLite; migrate it too if the proposed PostgreSQL deployment is selected. The provider only handles delivery and delivery events.
 
