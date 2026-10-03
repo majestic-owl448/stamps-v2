@@ -78,7 +78,7 @@ A moderator reviews proposals, checks the submitted source, merges duplicates, a
 
 The authenticated dashboard is the inventory entry point. A new user can view its empty state before completing postal-entity setup. It explains, "Before you can start adding stamps, choose or create at least one postal entity." When approved entities are available, the user chooses one or selects Create; the creation form is open by default only when no entity is available. Selection and creation remain part of the stamp workflow because every stamp belongs to a postal entity.
 
-Authenticated navigation links the dashboard and the personal settings page, with the current page identified. Personal settings contains account-data export, account deletion, and future account-level preferences. It does not contain postal-entity selection or creation. Sign-out remains in authenticated navigation.
+Authenticated navigation links the dashboard and the personal settings page, with the current page identified. Personal settings contains dashboard timezone preferences, account-data export, and account deletion. It does not contain postal-entity selection or creation. Sign-out remains in authenticated navigation.
 
 Before using the inventory, a newly authenticated user must save one postal-entity setting containing:
 
@@ -88,7 +88,6 @@ Before using the inventory, a newly authenticated user must save one postal-enti
 - Geographic or office scope.
 - Source URL or source note.
 - ISO 4217 display-currency code.
-- Display currency.
 
 A user can add an approved postal entity or submit another entity for moderation. Each postal-entity setting has its own display currency. The personal Settings page uses the browser timezone by default and lets the user save another valid IANA timezone. The saved timezone is used for server-side date calculations.
 
@@ -326,8 +325,9 @@ The authenticated inventory page contains:
 - Unit postage value and total postage value.
 - Overall inventory postage total.
 - Edit and remove actions.
-- JSON data-download action.
-- Account-deletion action with confirmation.
+
+The personal Settings page contains the dashboard timezone preference, JSON
+data-download action, and account-deletion action with confirmation.
 
 The face-value input changes with the selected type:
 
