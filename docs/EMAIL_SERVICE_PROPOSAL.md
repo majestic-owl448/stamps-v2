@@ -4,6 +4,7 @@
 
 - Scope: transactional email for the stamp inventory application
 - Delivery model: application mail service backed by an SMTP or email API provider
+- Provider selection: undecided
 - Current authentication: Google and Apple social login only; no account-linking interface
 - Excluded from the initial implementation: email-and-password login, username-and-password login, operating a public SMTP server, marketing campaigns, and physical postal-mail features
 
@@ -15,8 +16,7 @@ The application should own templates, notification rules, preferences, and deliv
 
 Email must report application state, not control it. A failed email must not prevent a social login from being linked, a proposal from being moderated, an account from being deleted, or a scheduled value from taking effect. The application remains the source of truth.
 
-Account linking is a separate product decision, as described in the
-[deployment proposal](DEPLOYMENT_PROPOSAL.md#authentication-cost-comparison).
+Account linking is a separate product decision.
 Login-linked and login-removed messages, and selection among multiple linked
 addresses, depend on that feature being approved and implemented. The initial
 email service can use the verified address of the current social identity; it
@@ -183,7 +183,7 @@ Those tasks do not improve stamp inventory or moderation. A delivery provider le
 
 Public list prices as of October 3, 2026, in US dollars before taxes. Providers can change prices, included features, and volume bands, so the selected plan must be checked again before launch.
 
-All of these providers can be called from the application through an HTTP API. Most also expose SMTP. None needs to run in the same deployment as the web application or database. The application-owned outbox belongs in the application database, which currently uses SQLite; migrate it too if the proposed PostgreSQL deployment is selected. The provider only handles delivery and delivery events.
+All of these providers can be called from the application through an HTTP API. Most also expose SMTP. None needs to run in the same deployment as the web application or database. The proposed application-owned outbox belongs in the application database. The initial deployment target is Supabase PostgreSQL, while the current repository still uses SQLite. The provider only handles delivery and delivery events.
 
 | Provider | Entry price | How cost scales | Suitability for this project |
 | --- | --- | --- | --- |
@@ -195,13 +195,12 @@ All of these providers can be called from the application through an HTTP API. M
 
 Resend documents both [Next.js integration examples](https://resend.com/docs/examples) and [signed delivery webhooks](https://resend.com/docs/api-reference/webhooks/create-webhook). Postmark explains how included volume and overage are billed in its [monthly pricing guide](https://postmarkapp.com/support/article/1107-how-does-monthly-pricing-work). Amazon describes the July 2026 SES plan structure in its [pricing-plan announcement](https://aws.amazon.com/blogs/messaging-and-targeting/introducing-amazon-simple-email-service-ses-pricing-plans/). Brevo lists its [plan prices and allowances](https://help.brevo.com/hc/en-us/articles/208589409-About-Brevo-s-pricing-plans) and documents its [transactional email API](https://developers.brevo.com/docs/send-a-transactional-email).
 
-### Recommended starting choice
+### Provider selection
 
-Use Resend for the first implementation. Its free plan is enough for development and a quiet launch, and its Pro plan gives a clear upgrade point when the application exceeds either 100 messages in a day or 3,000 in a month. Its API and webhook support fit the outbox design without tying product data to the provider.
-
-Amazon SES is the cost-first alternative. Moving to it becomes worthwhile when message volume makes the price difference material or the team is ready to own the extra AWS setup. Because templates, preferences, message state, and provider message IDs remain behind the application service, this change does not require a user-data migration.
-
-Postmark is the alternative if delivery tooling and retained message history are worth a higher per-message price. Brevo is reasonable if its daily free quota fits the traffic pattern. Mailgun should be reconsidered if inbound email or its SMTP tooling becomes a requirement.
+The email provider is undecided. The comparison above is dated research, not a
+selection. Recheck prices, limits, and delivery features when email implementation
+is scheduled, and choose a provider based on the expected message volume and
+operational requirements.
 
 The main cost driver is messages sent, not registered accounts. Monthly volume should be estimated from security events, moderation events, opted-in reminders, and digest frequency. A digest can combine several moderation events into one message, reducing both cost and notification noise.
 

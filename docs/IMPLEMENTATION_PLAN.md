@@ -7,7 +7,7 @@ The repository currently contains:
 - Next.js 16 App Router with React 19 and TypeScript.
 - Tailwind CSS 4.
 - SuperTokens authentication with Google and Apple.
-- Prisma 7 with committed SQLite migrations and separate development, test, and production connection configuration.
+- Prisma 7 with committed SQLite migrations and isolated development and test databases.
 - An authenticated inventory dashboard and a separate personal settings route.
 - An authenticated profile route that creates or updates a `UserProfile` keyed by the SuperTokens primary user ID.
 - A dashboard postal-entity workflow that lets a new user choose an available entity or create one before inventory access.
@@ -49,7 +49,7 @@ Suggested commit:
 feat(db): add repeatable setup commands
 ```
 
-The repository uses SQLite in every environment until a production host is selected. Each environment has a separate database connection, and a production database must be provisioned independently rather than copied from local development. The deployment proposal recommends PostgreSQL for the first release; that migration belongs to deployment work after the hosting decision.
+The repository currently uses SQLite. The first deployment will use Vercel for the application and Supabase PostgreSQL for the database. Migrating the Prisma provider, adapter, migrations, and local and test setup to PostgreSQL belongs to Phase 12. Each environment must have a separate database connection; production data must not be copied from local development.
 
 Work:
 
@@ -519,13 +519,15 @@ Automated verification:
 
 Deployment work:
 
-1. Configure production database credentials.
-2. Configure SuperTokens production domains.
-3. Replace demo social credentials with production Google and Apple applications.
-4. Run migrations before serving the new application version.
-5. Keep the existing CI jobs for lint, tests, build, and clean-database migration checks passing.
-6. Test a preview deployment with a normal account and a moderator account.
-7. Document backup, restore, and moderator-role assignment.
+1. Migrate the Prisma provider, driver adapter, and migration set from SQLite to PostgreSQL. Verify initialization from an empty PostgreSQL database.
+2. Update local development, disposable database tests, local test-user setup, and CI migration checks for PostgreSQL. Tests must never use development or production data.
+3. Deploy the Next.js application on Vercel with Supabase PostgreSQL. Keep development, test, preview, and production databases and credentials separate.
+4. Configure application and migration connections for Supabase, and store credentials in the deployment environment.
+5. Configure SuperTokens domains and production Google and Apple applications for the deployed origins.
+6. Run migrations as a release step before serving the new application version, separately from the application build.
+7. Keep the existing CI jobs for lint, tests, build, and clean-database migration checks passing.
+8. Test a preview deployment with a normal account and a moderator account, including persistence across deployments.
+9. Document backup, restore, and moderator-role assignment, and verify a restore into a separate database.
 
 Release verification:
 

@@ -90,7 +90,7 @@ Set `DATABASE_URL` to a different database for each environment:
 | --- | --- |
 | Development | Copy `sample.env` to `.env`. The default is the ignored `data.db` file. |
 | Test | `pnpm test --run` creates a temporary database, applies every committed migration, and removes the database afterward. |
-| Production | Provision persistent SQLite storage independently and store its file URL in the deployment platform's environment settings. Do not upload a development or test database. |
+| Production target | Vercel hosts the application and Supabase hosts PostgreSQL. The Prisma provider, adapter, and migrations must be changed before deployment. |
 
 Initialize an empty database, or apply all pending committed migrations to an
 existing database, with:
@@ -102,8 +102,8 @@ pnpm db:init
 Prisma loads `DATABASE_URL` from `.env` unless the current process already sets
 it. Set an explicit `DATABASE_URL` when targeting another environment. The command
 uses `prisma migrate deploy`, which applies committed migrations in order without
-creating a migration or resetting existing data. Run the same command against the independently provisioned
-production database during deployment.
+creating a migration or resetting existing data. The committed migrations currently
+target SQLite; they cannot initialize the planned Supabase PostgreSQL database.
 
 When changing the schema during development, create and apply the next migration:
 
@@ -112,7 +112,7 @@ pnpm db:migrate --name describe_change
 ```
 
 Prisma writes the migration to `prisma/migrations/`. Commit the migration with
-the schema change so `pnpm db:init` can apply it in test and production.
+the schema change so `pnpm db:init` can apply it to databases using that provider.
 
 Database files and records do not move between environments; only the committed
 migration files do.
@@ -123,12 +123,20 @@ To inspect a development database:
 pnpm prisma studio
 ```
 
-The current Prisma schema uses SQLite in every environment. A production target
-must provide persistent SQLite storage outside the application deployment before
-the migration command runs. A target that provides PostgreSQL instead requires a
-matching Prisma provider, adapter, and migration set before deployment. Local
-database files match the `data.db*` ignore rule and are not committed or included
-as deployment inputs.
+## Deployment target
+
+The first deployment will use Vercel for the Next.js application and Supabase for
+PostgreSQL. The repository still uses SQLite. Before deployment, migrate the
+Prisma provider, driver adapter, and migration set to PostgreSQL and update the
+local and disposable-test database setup to match.
+
+Keep development, test, preview, and production databases separate. Store database
+credentials in the deployment environment, apply migrations before releasing the
+application, and verify backup and restore procedures. The remaining deployment
+work is described in the [implementation plan](docs/IMPLEMENTATION_PLAN.md#phase-12-verification-and-deployment).
+
+Local database files match the `data.db*` ignore rule and are not committed or
+included as deployment inputs.
 
 ## Authentication
 
